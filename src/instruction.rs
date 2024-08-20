@@ -141,3 +141,10 @@ pub enum Opcode {
     /// [Transfer Y to accumulator](https://www.masswerk.at/6502/6502_instruction_set.html#TYA)
     TYA    
 }
+
+pub struct Instruction {
+    opcode: Opcode,
+    addressing_mode: AddressingMode,
+    cycles: usize,
+    data: (u8, u8)
+}
