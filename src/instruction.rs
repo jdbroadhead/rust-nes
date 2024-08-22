@@ -1,5 +1,6 @@
 /// Represents the various addressing modes used by the 6502. A more comprehensive explanation is
 /// available at [Emulator 101](http://www.emulator101.com/6502-addressing-modes.html)
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum AddressingMode {
     /// The target is the A register
     Accumulator,
@@ -18,7 +19,9 @@ pub enum AddressingMode {
     /// The address is given by the next byte (can only be in the range 0x00 to 0xFF)
     ZeroPage,
     /// The address is given by the next byte plus the contents of the X register (can only be in the range 0x00 to 0xFF, wraps around on overflow)
-    ZeroPageIndexed,
+    ZeroPageIndexedX,
+    /// The address is given by the next byte plus the contents of the Y register (can only be in the range 0x00 to 0xFF, wraps around on overflow)
+    ZeroPageIndexedY,
     /// The target address is stored at the address location represented by the next two bytes (little-endian)
     Indirect,
     /// The target address is stored at the address location represented by the next two bytes (little-endian) plus the contents of the X register
@@ -26,6 +29,8 @@ pub enum AddressingMode {
     /// The target address is the value at the address location represented by the next two bytes (little-endian), with the contents of the Y register added to it
     IndirectIndexed
 }
+
+
 
 pub enum Opcode {
     /// [Add with carry](https://www.masswerk.at/6502/6502_instruction_set.html#ADC)
@@ -143,14 +148,15 @@ pub enum Opcode {
 }
 
 pub struct Instruction {
-    opcode: Opcode,
-    addressing_mode: AddressingMode,
-    cycles: usize,
-    data: (u8, u8),
-    width: usize
+    pub opcode: Opcode,
+    pub addressing_mode: AddressingMode,
+    pub cycles: usize,
+    pub data: (u8, u8),
+    pub width: usize
 }
 
 impl Instruction {
+    #[inline]
     pub fn decode(memory: &[u8], memory_position: u16) -> Instruction {
         let index = memory_position as usize;
         let opcode_byte = memory[index];
@@ -176,7 +182,7 @@ impl Instruction {
             },
             0x75 => Self {
                 opcode: Opcode::ADC,
-                addressing_mode: AddressingMode::ZeroPageIndexed,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
                 cycles: 4,
                 width: 2,
                 data
@@ -234,7 +240,7 @@ impl Instruction {
             },
             0x35 => Self {
                 opcode: Opcode::AND,
-                addressing_mode: AddressingMode::ZeroPageIndexed,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
                 cycles: 4,
                 width: 2,
                 data
@@ -292,7 +298,7 @@ impl Instruction {
             },
             0x16 => Self {
                 opcode: Opcode::ASL,
-                addressing_mode: AddressingMode::ZeroPageIndexed,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
                 width: 2,
                 cycles: 6,
                 data
@@ -462,7 +468,7 @@ impl Instruction {
             },
             0xD5 => Self {
                 opcode: Opcode::CMP,
-                addressing_mode: AddressingMode::ZeroPageIndexed,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
                 cycles: 2,
                 width: 4,
                 data
@@ -546,6 +552,785 @@ impl Instruction {
                 addressing_mode: AddressingMode::Absolute,
                 width: 2,
                 cycles: 4,
+                data
+            },
+
+            // DEC
+            0xC6 => Self {
+                opcode: Opcode::DEC,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            0xD6 => Self {
+                opcode: Opcode::DEC,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0xCE => Self {
+                opcode: Opcode::DEC,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+            0xDE => Self {
+                opcode: Opcode::DEC,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 7,
+                data
+            },
+
+            // DEX
+            0xCA => Self {
+                opcode: Opcode::DEX,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // DEY
+            0x88 => Self {
+                opcode: Opcode::DEY,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // EOR
+            0x49 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0x45 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0x55 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0x4D => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x5D => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x59 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x41 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::IndexedIndirect,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x51 => Self {
+                opcode: Opcode::EOR,
+                addressing_mode: AddressingMode::IndirectIndexed,
+                width: 2,
+                cycles: 5,
+                data
+            },
+
+            // INC
+            0xE6 => Self {
+                opcode: Opcode::INC,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            0xF6 => Self {
+                opcode: Opcode::INC,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0xEE => Self {
+                opcode: Opcode::INC,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+            0xFE => Self {
+                opcode: Opcode::INC,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 7,
+                data
+            },
+
+            // INX
+            0xE8 => Self {
+                opcode: Opcode::INX,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // INY
+            0xC8 => Self {
+                opcode: Opcode::INY,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // JMP
+            0x4C => Self {
+                opcode: Opcode::JMP,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 3,
+                data
+            },
+            0x6C => Self {
+                opcode: Opcode::JMP,
+                addressing_mode: AddressingMode::Indirect,
+                width: 3,
+                cycles: 5,
+                data
+            },
+
+            // JSR
+            0x20 => Self {
+                opcode: Opcode::JSR,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+
+            // LDA
+            0xA9 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0xA5 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0xB5 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0xAD => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xBD => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xB9 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xA1 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::IndexedIndirect,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0xB1 => Self {
+                opcode: Opcode::LDA,
+                addressing_mode: AddressingMode::IndirectIndexed,
+                width: 2,
+                cycles: 5,
+                data
+            },
+
+            // LDX
+            0xA2 => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0xA6 => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0xB6 => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::ZeroPageIndexedY,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0xAE => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xBE => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+
+             // LDY
+             0xA0 => Self {
+                opcode: Opcode::LDY,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0xA4 => Self {
+                opcode: Opcode::LDY,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0xB4 => Self {
+                opcode: Opcode::LDY,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0xAC => Self {
+                opcode: Opcode::LDY,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xBC => Self {
+                opcode: Opcode::LDX,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            
+            // LSR
+            0x4A => Self {
+                opcode: Opcode::LSR,
+                addressing_mode: AddressingMode::Accumulator,
+                width: 1,
+                cycles: 2,
+                data
+            },
+            0x46 => Self {
+                opcode: Opcode::LSR,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            0x56 => Self {
+                opcode: Opcode::LSR,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x4E => Self {
+                opcode: Opcode::LSR,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+            0x5E => Self {
+                opcode: Opcode::LSR,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 7,
+                data
+            },
+
+            // NOP
+            0xEA => Self {
+                opcode: Opcode::NOP,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // ORA
+            0x09 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0x05 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0x15 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0x0D => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x1D => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x19 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x01 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::IndexedIndirect,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x11 => Self {
+                opcode: Opcode::ORA,
+                addressing_mode: AddressingMode::IndirectIndexed,
+                width: 2,
+                cycles: 5,
+                data
+            },
+
+            // PHA
+            0x48 => Self {
+                opcode: Opcode::PHA,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 3,
+                data
+            },
+
+            // PHP
+            0x08 => Self {
+                opcode: Opcode::PHP,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 3,
+                data
+            },
+
+            // PLA
+            0x68 => Self {
+                opcode: Opcode::PLA,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 4,
+                data
+            },
+
+            // PLP
+            0x28 => Self {
+                opcode: Opcode::PLP,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 4,
+                data
+            },
+
+            // ROL
+            0x2A => Self {
+                opcode: Opcode::ROL,
+                addressing_mode: AddressingMode::Accumulator,
+                width: 1,
+                cycles: 2,
+                data
+            },
+            0x26 => Self {
+                opcode: Opcode::ROL,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            0x36 => Self {
+                opcode: Opcode::ROL,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x2E => Self {
+                opcode: Opcode::ROL,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+            0x3E => Self {
+                opcode: Opcode::ROL,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 7,
+                data
+            },
+            
+            // ROR
+            0x6A => Self {
+                opcode: Opcode::ROR,
+                addressing_mode: AddressingMode::Accumulator,
+                width: 1,
+                cycles: 2,
+                data
+            },
+            0x66 => Self {
+                opcode: Opcode::ROR,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            0x76 => Self {
+                opcode: Opcode::ROR,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x6E => Self {
+                opcode: Opcode::ROR,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 6,
+                data
+            },
+            0x7E => Self {
+                opcode: Opcode::ROR,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 7,
+                data
+            },
+
+            // RTI
+            0x40 => Self {
+                opcode: Opcode::RTI,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 6,
+                data
+            },
+
+            // RTS
+            0x60 => Self {
+                opcode: Opcode::RTS,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 6,
+                data
+            },
+
+            // SBC
+            0xE9 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::Immediate,
+                width: 2,
+                cycles: 2,
+                data
+            },
+            0xE5 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0xF5 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0xED => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::Absolute,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0xFD => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xF9 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0xE1 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::IndexedIndirect,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0xF1 => Self {
+                opcode: Opcode::SBC,
+                addressing_mode: AddressingMode::IndirectIndexed,
+                width: 2,
+                cycles: 5,
+                data
+            },
+            
+            // SEC
+            0x38 => Self {
+                opcode: Opcode::SEC,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // SED
+            0xF8 => Self {
+                opcode: Opcode::SED,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // SEI
+            0x78 => Self {
+                opcode: Opcode::SEI,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // STA
+            0x85 => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0x95 => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0x8D => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+            0x9D => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
+                width: 3,
+                cycles: 5,
+                data
+            },
+            0x99 => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                width: 3,
+                cycles: 5,
+                data
+            },
+            0x81 => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::IndexedIndirect,
+                width: 2,
+                cycles: 6,
+                data
+            },
+            0x91 => Self {
+                opcode: Opcode::STA,
+                addressing_mode: AddressingMode::IndirectIndexed,
+                width: 2,
+                cycles: 6,
+                data
+            },
+
+            // STX
+            0x86 => Self {
+                opcode: Opcode::STX,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0x96 => Self {
+                opcode: Opcode::STX,
+                addressing_mode: AddressingMode::ZeroPageIndexedY,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0x8E => Self {
+                opcode: Opcode::STX,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+
+            // STY
+            0x86 => Self {
+                opcode: Opcode::STY,
+                addressing_mode: AddressingMode::ZeroPage,
+                width: 2,
+                cycles: 3,
+                data
+            },
+            0x96 => Self {
+                opcode: Opcode::STY,
+                addressing_mode: AddressingMode::ZeroPageIndexedX,
+                width: 2,
+                cycles: 4,
+                data
+            },
+            0x8E => Self {
+                opcode: Opcode::STY,
+                addressing_mode: AddressingMode::Absolute,
+                width: 3,
+                cycles: 4,
+                data
+            },
+
+            // TAX
+            0xAA => Self {
+                opcode: Opcode::TAX,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // TAY
+            0xA8 => Self {
+                opcode: Opcode::TAY,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // TSX
+            0xBA => Self {
+                opcode: Opcode::TSX,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // TXA
+            0x8A => Self {
+                opcode: Opcode::TXA,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // TXS
+            0x9A => Self {
+                opcode: Opcode::TXS,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
+                data
+            },
+
+            // TYA
+            0x98 => Self {
+                opcode: Opcode::TYA,
+                addressing_mode: AddressingMode::Implied,
+                width: 1,
+                cycles: 2,
                 data
             },
 
