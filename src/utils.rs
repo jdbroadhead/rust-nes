@@ -8,6 +8,15 @@ pub fn to_address_from_bytes(bytes: (u8, u8)) -> usize {
     address + little_byte
 }
 
+/// Addresses are effectively u16 in rust, which is big-endian. In a 6502 processor
+/// addresses are little-endian. This method returns the bytes which make up an address
+/// in an order which makes more sense for the 6502
+pub fn to_bytes_from_address(address: u16) -> (u8, u8) {
+    let lo_byte = address as u8;
+    let hi_byte = (address >> 8) as u8;
+    (lo_byte, hi_byte)
+}
+
 /// The address space is conceived of as consisting of 256-byte pages.
 /// Crossing a page boundary when addressing incurs an additional cycle
 /// depending on the instruction, so we need to know when it happens.

@@ -4,11 +4,12 @@ use core::panic;
 use std::{collections::btree_map, fmt::{write, Display}, u16};
 
 use instruction::{AddressingMode, Instruction, Opcode};
-use utils::{is_negative, is_zero, to_address_from_bytes, was_page_boundary_crossed};
+use utils::{is_negative, is_zero, to_address_from_bytes, to_bytes_from_address, was_page_boundary_crossed};
 
 /// The 6502 uses two bytes for memory addresses. Not all of it is RAM, cartridge memory is
 /// addressed in the same way.
 const MEMORY_SIZE: usize = u16::MAX as usize + 1;
+const STACK_PAGE : u16 = 0x0100;
 
 struct CPUFlags {
     pub carry: bool,
@@ -88,7 +89,22 @@ impl<'a> CPU6502<'a> {
         }
     }
 
-    pub fn load_memory(&mut self, location: u16, data: &[u8]) {
+    pub fn push_on_stack(&mut self, byte: u8) {
+        let address = STACK_PAGE + self.sp as u16;
+        self.memory[address as usize] = byte;
+        // Stack is addressed top-down - i.e. stack pointer of 0xFF means empty stack
+        // and a stack pointer of 0x00 means a full stack - so we decrement the pointer
+        self.sp -= 1;
+    }
+
+    pub fn pop_from_stack(&mut self) -> u8 {
+        let address = STACK_PAGE + self.sp as u16;
+        let byte = self.memory[address as usize];
+        self.sp += 1;
+        byte
+    }
+
+    fn load_memory(&mut self, location: u16, data: &[u8]) {
         let _: Vec<_> = data.iter().enumerate().map(|tuple| {
             let (index, byte) = tuple;
             self.memory[index + location as usize] = *byte;
@@ -113,6 +129,16 @@ impl<'a> CPU6502<'a> {
                 self.pc = new_address as u16;
                 // JMP and other branch instructions add 1 cycle if branch occurs to same page, 2 if elsewhere
                 self.cycles += instruction.cycles
+            },
+
+            Opcode::JSR => {
+                // Return address is next instruction - or PC plus 2
+                let return_address_bytes = to_bytes_from_address(self.pc + 2);
+                self.push_on_stack(return_address_bytes.0);
+                self.push_on_stack(return_address_bytes.1);
+                let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.pc = new_address as u16;
+                self.cycles += instruction.cycles;
             },
 
             Opcode::LDA => {
