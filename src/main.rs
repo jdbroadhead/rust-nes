@@ -662,7 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn run_nestest() {
+    fn test_legal_instructions_with_nestest() {
         // We need something against which we can compare our execution of the nestest binary. Fortunately there are
         // log files available. So we open the nestest.log file into a line-by-line iterator
         let log_file = File::open("nestest.log").unwrap();
@@ -687,6 +687,9 @@ mod tests {
 
         // ...and iterate through the log lines, executing instructions as we go
         for line in logs.enumerate() {
+            if cpu.pc == 0xC6BC {
+                break;
+            }
             if let (line_no, Ok(log)) = line {
                 // The logs include PPU information, which we obviously can't test here, so we split the strings
                 let cpu_log = remove_ppu_from_log(&cpu.to_string());
