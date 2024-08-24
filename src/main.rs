@@ -1,6 +1,10 @@
-use std::u16;
 mod instruction;
 mod utils;
+use core::panic;
+use std::{collections::btree_map, fmt::{write, Display}, u16};
+
+use instruction::{AddressingMode, Instruction, Opcode};
+use utils::{to_address_from_bytes, was_page_boundary_crossed};
 
 /// The 6502 uses two bytes for memory addresses. Not all of it is RAM, cartridge memory is
 /// addressed in the same way.
@@ -47,6 +51,7 @@ struct CPU6502<'a> {
     a: u8,
     pc: u16,
     sp: u8,
+    cycles: usize,
     flags: CPUFlags,
     memory: &'a mut [u8]
 }
@@ -59,6 +64,8 @@ impl<'a> CPU6502<'a> {
             a: 0,
             pc: 0,
             sp: 0,
+            cycles: 0,
+            sp: 0xFD,
             flags: CPUFlags::new(),
             memory
         }
