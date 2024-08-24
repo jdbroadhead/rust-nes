@@ -257,8 +257,8 @@ impl<'a> CPU6502<'a> {
             Opcode::JSR => {
                 // Return address is next instruction - or PC plus 2
                 let return_address_bytes = to_bytes_from_address(self.pc + 2);
-                self.push_on_stack(return_address_bytes.0);
                 self.push_on_stack(return_address_bytes.1);
+                self.push_on_stack(return_address_bytes.0);
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
                 // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
                 self.pc = (new_address - instruction.width) as u16;
@@ -306,8 +306,8 @@ impl<'a> CPU6502<'a> {
             },
 
             Opcode::RTS => {
-                let hi_byte = self.pop_from_stack();
-                let address = to_address_from_bytes((self.pop_from_stack(), hi_byte)) as u16;
+                let lo_byte = self.pop_from_stack();
+                let address = to_address_from_bytes((lo_byte, self.pop_from_stack())) as u16;
                 self.pc = address;  
             },
 
