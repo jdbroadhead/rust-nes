@@ -332,8 +332,29 @@ impl<'a> CPU6502<'a> {
             Opcode::STY => {
                 let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
                 self.memory[address] = self.y;        
-            }
+            },
 
+            Opcode::TAX => {
+                self.x = self.a;
+                self.set_flags(self.x);
+            },
+            Opcode::TAY => {
+                self.y = self.a;
+                self.set_flags(self.y);
+            },
+            Opcode::TSX => {
+                self.x = self.sp;
+                self.set_flags(self.x);
+            },
+            Opcode::TXA => {
+                self.a = self.x;
+                self.set_flags(self.a);
+            },
+            Opcode::TXS => self.sp = self.x,
+            Opcode::TYA => {
+                self.a = self.y;
+                self.set_flags(self.a);
+            },
 
             _ => panic!("Unsupported instruction executed")
         }
@@ -516,6 +537,7 @@ impl<'a> Display for CPU6502<'a> {
                 operand_fragment = format!("{:?} (${:02X}{:02X}) = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, address as u16);
             },
         };
+
 
         let mut first_half = format!("{:X}  {}{}", self.pc, bytes_fragment, operand_fragment);
         let padding_required = 48 - first_half.len();
