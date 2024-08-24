@@ -54,6 +54,30 @@ impl<'a> CPU6502<'a> {
     }
 
 
+    /// For instructions which take values as an operand. Takes the two bytes following the opcode and the addressing mode, and returns a tuple containing
+    /// the intended the intended operand for the instruction and a bool representing whether a page boundary
+    /// has been crossed
+    fn get_value_operand(&self, instruction_data: (u8, u8), addressing_mode: AddressingMode) -> (u8, bool) {
+        match addressing_mode {
+            // Immediate instructions just take the next byte as an operand
+            AddressingMode::Immediate => (instruction_data.0, false),
+
+            // Accumulator instructions just need the value in the accumulator
+            AddressingMode::Accumulator => (self.a, false),
+
+            // An implied addressing mode effectively means there is no operand. We return 0x00
+            // for simplicity
+            AddressingMode::Implied => panic!("Cannot resolve operand for addressing mode {:?}", addressing_mode),
+
+            // Other addressing modes need the value at the memory address indicated by the data and
+            // the addressing mode
+            _ => {
+                let (address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                (self.memory[address], page_boundary_crossed)
+            }
+        }
+    }
+
     /// For instructions which take an address as an operand. Takes the addressing mode and the two bytes following the instruction and returns a
     /// tuple containing the address and a bool indicating whether a page boundary has been crossed.
     fn get_address_operand(&self, instruction_data: (u8, u8), addressing_mode: AddressingMode) -> (usize, bool) {
