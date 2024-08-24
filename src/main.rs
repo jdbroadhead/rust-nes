@@ -28,6 +28,17 @@ impl CPUFlags {
             negative: false
         }
     }
+
+    pub fn as_byte(&self) -> u8 {
+        let mut byte = self.negative as u8;
+        byte = (byte << 1) | self.overflow as u8;
+        // Bit 5 is ignored, so we left shift one more
+        byte = (byte << 2) | self.break_command as u8;
+        byte = (byte << 1) | self.decimal_mode as u8;
+        byte = (byte << 1) | self.interrupt_disable as u8;
+        byte = (byte << 1) | self.zero as u8;
+        (byte << 1) | self.carry as u8
+    }
 }
 
 struct CPU6502<'a> {
