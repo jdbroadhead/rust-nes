@@ -178,6 +178,13 @@ impl<'a> CPU6502<'a> {
                 self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
             },
 
+            Opcode::ASL => {
+                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.carry = (operand & 0b10000000) == 0b10000000;
+                self.a = operand << 1;
+                self.set_flags(self.a);
+            }
+
             Opcode::BCC => self.branch_on_condition(!self.flags.carry, &instruction),
             Opcode::BCS => self.branch_on_condition(self.flags.carry, &instruction),
             Opcode::BEQ => self.branch_on_condition(self.flags.zero, &instruction),
@@ -282,6 +289,13 @@ impl<'a> CPU6502<'a> {
                 self.add_extra_cycles(&addressing_mode, page_boundary_crossed); 
             },
 
+            Opcode::LSR => {
+                let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.carry = (byte & 0x01) == 1;
+                self.a = byte >> 1;
+                self.set_flags(self.a);
+            }
+
             Opcode::NOP => (),
 
             Opcode::ORA => {
@@ -304,6 +318,21 @@ impl<'a> CPU6502<'a> {
                 self.flags.set_from_byte(new_flags);
                 self.flags.break_command = false;  
             },
+
+            Opcode::ROL => {
+                let carry = self.flags.carry as u8;
+                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.carry = (operand & 0b10000000) == 0b10000000;
+                self.a = (operand << 1) + carry;
+                self.set_flags(self.a);
+            },
+            Opcode::ROR => {
+                let carry = self.flags.carry as u8;
+                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.carry = (operand & 0x01) == 1;
+                self.a = (operand >> 1) + (carry << 7);
+                self.set_flags(self.a);
+            }
 
             Opcode::RTI => {
                 let new_flags = self.pop_from_stack();
