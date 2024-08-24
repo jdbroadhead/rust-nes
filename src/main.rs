@@ -495,7 +495,16 @@ impl<'a> Display for CPU6502<'a> {
             AddressingMode::Implied => operand_fragment = format!("{:?}", instruction.opcode),
             AddressingMode::Immediate => operand_fragment = format!("{:?} #${:02X}", instruction.opcode, instruction.data.0),
             AddressingMode::Absolute => {
-                operand_fragment = format!("{:?} ${:02X}{:02X}", instruction.opcode, instruction.data.1, instruction.data.0);
+                // Infuriatingly STA, STX and STY seem to have special logging requirements, where the value of the register is included
+                match instruction.opcode {
+                    Opcode::STX | Opcode::STY | Opcode::STA | Opcode::LDA | Opcode::LDX | Opcode::LDY => {
+                        let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                        let byte = self.memory[address]; 
+                        operand_fragment = format!("{:?} ${:02X}{:02X} = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, byte)
+                    },
+                    _ => operand_fragment = format!("{:?} ${:02X}{:02X}", instruction.opcode, instruction.data.1, instruction.data.0)
+
+                }
             },
             AddressingMode::AbsoluteIndexedX => {
                 let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
@@ -537,7 +546,6 @@ impl<'a> Display for CPU6502<'a> {
                 operand_fragment = format!("{:?} (${:02X}{:02X}) = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, address as u16);
             },
         };
-
 
         let mut first_half = format!("{:X}  {}{}", self.pc, bytes_fragment, operand_fragment);
         let padding_required = 48 - first_half.len();
