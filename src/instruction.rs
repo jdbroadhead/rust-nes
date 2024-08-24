@@ -953,8 +953,8 @@ impl Instruction {
 				opcode_byte
             },
             0xBC => Self {
-                opcode: Opcode::LDX,
-                addressing_mode: AddressingMode::AbsoluteIndexedY,
+                opcode: Opcode::LDY,
+                addressing_mode: AddressingMode::AbsoluteIndexedX,
                 width: 3,
                 cycles: 4,
                 data,
@@ -1244,7 +1244,7 @@ impl Instruction {
                 opcode: Opcode::SBC,
                 addressing_mode: AddressingMode::ZeroPageIndexedX,
                 width: 2,
-                cycles: 3,
+                cycles: 4,
                 data,
 				opcode_byte
             },
