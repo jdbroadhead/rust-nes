@@ -486,8 +486,8 @@ impl<'a> CPU6502<'a> {
             // Indexed indirect retrieves two bytes from the zero page indexed by X to get an address,
             // then returns the word at that address
             AddressingMode::IndexedIndirect => {
-                let indirect_address = (instruction_data.0 + self.x) as usize;
-                let address = to_address_from_bytes((self.memory[indirect_address], self.memory[indirect_address+1]));
+                let indirect_address = (instruction_data.0.wrapping_add(self.x));
+                let address = to_address_from_bytes((self.memory[indirect_address as usize], self.memory[indirect_address.wrapping_add(1) as usize]));
                 (address, false)
             }
 
@@ -556,7 +556,7 @@ impl<'a> Display for CPU6502<'a> {
             AddressingMode::IndexedIndirect => {
                 let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
                 let byte = self.memory[address]; 
-                operand_fragment = format!("{:?} (${:02X},X) @ {:02X} = {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.x, address as u16, byte);
+                operand_fragment = format!("{:?} (${:02X},X) @ {:02X} = {:04X} = {:02X}", instruction.opcode, instruction.data.0, self.x.wrapping_add(instruction.data.0), address as u16, byte);
             },
             AddressingMode::ZeroPage => {
                 let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
