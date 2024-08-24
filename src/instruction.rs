@@ -1404,7 +1404,7 @@ impl Instruction {
             },
 
             // STY
-            0x86 => Self {
+            0x84 => Self {
                 opcode: Opcode::STY,
                 addressing_mode: AddressingMode::ZeroPage,
                 width: 2,
@@ -1412,7 +1412,7 @@ impl Instruction {
                 data,
 				opcode_byte
             },
-            0x96 => Self {
+            0x94 => Self {
                 opcode: Opcode::STY,
                 addressing_mode: AddressingMode::ZeroPageIndexedX,
                 width: 2,
@@ -1420,7 +1420,7 @@ impl Instruction {
                 data,
 				opcode_byte
             },
-            0x8E => Self {
+            0x8C => Self {
                 opcode: Opcode::STY,
                 addressing_mode: AddressingMode::Absolute,
                 width: 3,
