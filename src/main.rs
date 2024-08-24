@@ -528,7 +528,8 @@ impl<'a> CPU6502<'a> {
             // Indirect indexed retrieves two bytes from the zero page to get an address, which is indexed
             // by Y with carry, and the word at that address is returned
             AddressingMode::IndirectIndexed => {
-                let address = to_address_from_bytes((instruction_data.0, instruction_data.0 + 1));
+                let address = to_address_from_bytes((self.memory[instruction_data.0 as usize],
+                    self.memory[instruction_data.0.wrapping_add(1) as usize]));
                 let indexed_address = address + self.y as usize;
                 (indexed_address, was_page_boundary_crossed(address, indexed_address))
             },
@@ -607,9 +608,11 @@ impl<'a> Display for CPU6502<'a> {
                 operand_fragment = format!("{:?} ${:02X},Y @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, byte);
             },
             AddressingMode::IndirectIndexed => {
-                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
-                let byte = self.memory[address]; 
-                operand_fragment = format!("{:?} (${:02X}),Y @ {:02X} = {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, address as u16, byte);
+                let address = to_address_from_bytes((self.memory[instruction.data.0 as usize],
+                    self.memory[instruction.data.0.wrapping_add(1) as usize]));
+                let (end_address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                let byte = self.memory[end_address]; 
+                operand_fragment = format!("{:?} (${:02X}),Y = {:04X} @ {:04X} = {:02X}", instruction.opcode, instruction.data.0, address, end_address, byte);
             },
             AddressingMode::Accumulator => operand_fragment = format!("{:?} A", instruction.opcode),
             AddressingMode::Relative => {
