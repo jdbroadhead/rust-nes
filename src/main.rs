@@ -54,6 +54,93 @@ impl<'a> CPU6502<'a> {
     }
 
 
+    /// For instructions which take an address as an operand. Takes the addressing mode and the two bytes following the instruction and returns a
+    /// tuple containing the address and a bool indicating whether a page boundary has been crossed.
+    fn get_address_operand(&self, instruction_data: (u8, u8), addressing_mode: AddressingMode) -> (usize, bool) {
+        match addressing_mode {
+            // Absolute instructions need the value in memory at the address given by the data
+            // bytes (little-endian)
+            AddressingMode::Absolute => {
+                let address = utils::to_address_from_bytes(instruction_data);
+                (address, false)
+            },
+
+            // Absolute instructions need the value in memory at the address given by the data
+            // bytes (little-endian) plus the value in register X
+            AddressingMode::AbsoluteIndexedX => {
+                let address = utils::to_address_from_bytes(instruction_data);
+                let indexed_address = address + self.x as usize;
+                (address, was_page_boundary_crossed(address, indexed_address))
+            },
+
+            // Absolute instructions need the value in memory at the address given by the data
+            // bytes (little-endian) plus the value in register Y
+            AddressingMode::AbsoluteIndexedY => {
+                let address = utils::to_address_from_bytes(instruction_data);
+                let indexed_address = address + self.x as usize;
+                (address, was_page_boundary_crossed(address, indexed_address))
+            },
+
+            // Returns the byte on the zero page at the address given by the first byte of
+            // instruction data
+            AddressingMode::ZeroPage => {
+                let address = instruction_data.0 as usize;
+                (address, false)  
+              },
+  
+              // Returns the byte on the zero page at the address given by indexing the first byte
+              // of instruction data with the contents of the X register. This may overflow, which
+              // is intended behaviour
+              AddressingMode::ZeroPageIndexedX => {
+                  let address = (instruction_data.0 + self.x) as usize;
+                  (address, false)
+              },
+  
+              // Returns the byte on the zero page at the address given by indexing the first byte
+              // of instruction data with the contents of the Y register. This may overflow, which
+              // is intended behaviour
+              AddressingMode::ZeroPageIndexedY => {
+                  let address = (instruction_data.0 + self.y) as usize;
+                  (address, false)
+              },
+
+              // Indirect is word at address given by reading two bytes from address given by instruction data
+            AddressingMode::Indirect => {
+                let indirect_address = to_address_from_bytes(instruction_data);
+                let address = to_address_from_bytes((self.memory[indirect_address], self.memory[indirect_address+1]));
+                (address, false)
+            }
+
+            // Indexed indirect retrieves two bytes from the zero page indexed by X to get an address,
+            // then returns the word at that address
+            AddressingMode::IndexedIndirect => {
+                let indirect_address = (instruction_data.0 + self.x) as usize;
+                let address = to_address_from_bytes((self.memory[indirect_address], self.memory[indirect_address+1]));
+                (address, false)
+            }
+
+            // Indirect indexed retrieves two bytes from the zero page to get an address, which is indexed
+            // by Y with carry, and the word at that address is returned
+            AddressingMode::IndirectIndexed => {
+                let address = to_address_from_bytes((instruction_data.0, instruction_data.0 + 1));
+                let indexed_address = address + self.y as usize;
+                (indexed_address, was_page_boundary_crossed(address, indexed_address))
+            },
+
+            // Relative addressing mode takes the address currently in the program counter and adds a signed
+            // offset given by the next byte
+            AddressingMode::Relative => {
+                let offset = (instruction_data.0 as i8) as i32;
+                let pc = self.pc as i32;
+                let address = (pc + offset) as usize;
+                (address, was_page_boundary_crossed(pc as usize, address))
+            },
+
+            // All other addressing modes don't refer to an address in memory but a register (or none at all)
+            _ => panic!("Can't resolve a memory address for addressing mode {:?}", addressing_mode)
+        }
+    }
+}
 }
 
 fn main() {
