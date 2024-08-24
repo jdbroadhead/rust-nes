@@ -78,6 +78,27 @@ impl<'a> CPU6502<'a> {
     }
 
 
+    fn execute_instruction(&mut self, instruction: Instruction) {
+        // Add variable bindings here to keep the execution switch statement (reasonably)
+        // concise and readable
+        let addressing_mode = instruction.addressing_mode;
+        let opcode = instruction.opcode;
+        let instruction_data = instruction.data;
+
+        match opcode {
+            Opcode::JMP => {
+                let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.pc = new_address as u16;
+                // JMP and other branch instructions add 1 cycle if branch occurs to same page, 2 if elsewhere
+                self.cycles += instruction.cycles
+            },
+
+
+
+            _ => panic!("Unsupported instruction executed")
+        }
+    }
+
     /// For instructions which take values as an operand. Takes the two bytes following the opcode and the addressing mode, and returns a tuple containing
     /// the intended the intended operand for the instruction and a bool representing whether a page boundary
     /// has been crossed
