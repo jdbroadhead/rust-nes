@@ -4,7 +4,7 @@ use core::panic;
 use std::{collections::btree_map, fmt::{write, Display}, u16};
 
 use instruction::{AddressingMode, Instruction, Opcode};
-use utils::{to_address_from_bytes, was_page_boundary_crossed};
+use utils::{is_negative, is_zero, to_address_from_bytes, was_page_boundary_crossed};
 
 /// The 6502 uses two bytes for memory addresses. Not all of it is RAM, cartridge memory is
 /// addressed in the same way.
@@ -53,8 +53,9 @@ impl CPUFlags {
     pub fn as_byte(&self) -> u8 {
         let mut byte = self.negative as u8;
         byte = (byte << 1) | self.overflow as u8;
-        // Bit 5 is ignored, so we left shift one more
-        byte = (byte << 2) | self.break_command as u8;
+        // Bit 5 is always 1
+        byte = (byte << 1) | 1;
+        byte = (byte << 1) | self.break_command as u8;
         byte = (byte << 1) | self.decimal_mode as u8;
         byte = (byte << 1) | self.interrupt_disable as u8;
         byte = (byte << 1) | self.zero as u8;
@@ -81,7 +82,7 @@ impl<'a> CPU6502<'a> {
             a: 0,
             pc: 0,
             cycles: 0,
-            sp: 0xFD,
+            sp: 0xFF,
             flags: CPUFlags::new(),
             memory
         }
@@ -94,6 +95,10 @@ impl<'a> CPU6502<'a> {
         } ).collect();
     }
 
+    pub fn load_and_execute(&mut self) {
+        let instruction = Instruction::decode(&self.memory, self.pc);
+        self.execute_instruction(instruction)
+    }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
         // Add variable bindings here to keep the execution switch statement (reasonably)
@@ -110,6 +115,63 @@ impl<'a> CPU6502<'a> {
                 self.cycles += instruction.cycles
             },
 
+            Opcode::LDA => {
+                let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.zero = is_zero(byte);
+                self.flags.negative = is_negative(byte);
+                self.a = byte;
+                self.cycles += instruction.cycles;
+                if (addressing_mode == AddressingMode::AbsoluteIndexedX || addressing_mode == AddressingMode::AbsoluteIndexedY)
+                        && page_boundary_crossed {
+                    self.cycles += 1
+                }
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::LDX => {
+                let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.zero = is_zero(byte);
+                self.flags.negative = is_negative(byte);
+                self.x = byte;
+                self.cycles += instruction.cycles;
+                if addressing_mode == AddressingMode::AbsoluteIndexedY && page_boundary_crossed {
+                    self.cycles += 1
+                }
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::LDY => {
+                let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.zero = is_zero(byte);
+                self.flags.negative = is_negative(byte);
+                self.y = byte;
+                self.cycles += instruction.cycles;
+                if addressing_mode == AddressingMode::AbsoluteIndexedX && page_boundary_crossed {
+                    self.cycles += 1
+                }
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::STA => {
+                let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.memory[address] = self.a;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::STX => {
+                let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.memory[address] = self.x;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::STY => {
+                let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.memory[address] = self.y;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            }
 
 
             _ => panic!("Unsupported instruction executed")
@@ -244,7 +306,7 @@ impl<'a> Display for CPU6502<'a> {
         let operand_fragment: String;
         match instruction.addressing_mode {
             AddressingMode::Implied => operand_fragment = format!("{:?}", instruction.opcode),
-            AddressingMode::Immediate => operand_fragment = format!("{:?} #{:02X}", instruction.opcode, instruction.data.0),
+            AddressingMode::Immediate => operand_fragment = format!("{:?} #${:02X}", instruction.opcode, instruction.data.0),
             AddressingMode::Absolute => {
                 operand_fragment = format!("{:?} ${:02X}{:02X}", instruction.opcode, instruction.data.1, instruction.data.0);
             },
@@ -290,7 +352,7 @@ impl<'a> Display for CPU6502<'a> {
             },
         };
 
-        let mut first_half = format!("{:X} {}{}", self.pc, bytes_fragment, operand_fragment);
+        let mut first_half = format!("{:X}  {}{}", self.pc, bytes_fragment, operand_fragment);
         let padding_required = 48 - first_half.len();
         first_half += (0..padding_required).map(|_| " ").collect::<String>().as_str();
 
@@ -304,7 +366,7 @@ impl<'a> Display for CPU6502<'a> {
 
 fn main() {
     let mut memory = [0 as u8; MEMORY_SIZE];
-    let mut cpu = CPU6502::new(memory.as_mut_slice());
+    let _ = CPU6502::new(memory.as_mut_slice());
 }
 
 #[cfg(test)]
@@ -357,3 +419,4 @@ mod tests {
             }
         }
     }
+}

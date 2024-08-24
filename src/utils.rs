@@ -23,3 +23,15 @@ pub fn was_page_boundary_crossed(address: usize, indexed_address: usize) -> bool
 
     (address & bitmask) != (indexed_address & bitmask)
 }
+
+/// Bytes are represented as an unsigned 8-bit integer, but a flag needs to be set
+/// if the value when coerced to i8 would be negative. It's a simple comparison but
+/// more readable to has a function
+pub fn is_negative(byte: u8) -> bool {
+    (byte as i8) < 0
+}
+
+/// A flag needs to be set if the byte is zero. Encapsulated as a function for readability
+pub fn is_zero(byte: u8) -> bool {
+    byte == 0
+}
