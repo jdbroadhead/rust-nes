@@ -305,6 +305,16 @@ impl<'a> CPU6502<'a> {
                 self.flags.break_command = false;  
             },
 
+            Opcode::RTI => {
+                let new_flags = self.pop_from_stack();
+                self.flags.set_from_byte(new_flags);
+                self.flags.break_command = false;  
+                let lo_byte = self.pop_from_stack();
+                let address = to_address_from_bytes((lo_byte, self.pop_from_stack())) as u16;
+                // Pre-decrement address, as it's incremented again in the execution loop
+                self.pc = address.wrapping_sub(1);  
+            },
+
             Opcode::RTS => {
                 let lo_byte = self.pop_from_stack();
                 let address = to_address_from_bytes((lo_byte, self.pop_from_stack())) as u16;
