@@ -512,8 +512,9 @@ impl<'a> CPU6502<'a> {
 
               // Indirect is word at address given by reading two bytes from address given by instruction data
             AddressingMode::Indirect => {
-                let indirect_address = to_address_from_bytes(instruction_data);
-                let address = to_address_from_bytes((self.memory[indirect_address], self.memory[indirect_address+1]));
+                let lo_address = to_address_from_bytes(instruction_data);
+                let hi_address = to_address_from_bytes((instruction_data.0.wrapping_add(1), instruction_data.1));
+                let address = to_address_from_bytes((self.memory[lo_address], self.memory[hi_address]));
                 (address, false)
             }
 
@@ -620,8 +621,10 @@ impl<'a> Display for CPU6502<'a> {
                 operand_fragment = format!("{:?} ${:02X}", instruction.opcode, address as u16);
             },
             AddressingMode::Indirect => {
-                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
-                operand_fragment = format!("{:?} (${:02X}{:02X}) = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, address as u16);
+                let lo_address = to_address_from_bytes(instruction.data);
+                let hi_address = to_address_from_bytes((instruction.data.0.wrapping_add(1), instruction.data.1));
+                let indirect_address = to_address_from_bytes((self.memory[lo_address], self.memory[hi_address]));
+                operand_fragment = format!("{:?} (${:02X}{:02X}) = {:04X}", instruction.opcode, instruction.data.1, instruction.data.0, indirect_address);
             },
         };
 
