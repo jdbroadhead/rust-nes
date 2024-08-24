@@ -498,7 +498,7 @@ impl<'a> CPU6502<'a> {
               // of instruction data with the contents of the X register. This may overflow, which
               // is intended behaviour
               AddressingMode::ZeroPageIndexedX => {
-                  let address = (instruction_data.0 + self.x) as usize;
+                  let address = (instruction_data.0.wrapping_add(self.x)) as usize;
                   (address, false)
               },
   
@@ -506,7 +506,7 @@ impl<'a> CPU6502<'a> {
               // of instruction data with the contents of the Y register. This may overflow, which
               // is intended behaviour
               AddressingMode::ZeroPageIndexedY => {
-                  let address = (instruction_data.0 + self.y) as usize;
+                  let address = (instruction_data.0.wrapping_add(self.y)) as usize;
                   (address, false)
               },
 
