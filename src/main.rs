@@ -214,11 +214,39 @@ impl<'a> CPU6502<'a> {
                 self.compare_and_set_flags(self.y, operand);
             },
 
+            Opcode::DEC => {
+                let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.memory[address] = self.memory[address].wrapping_sub(1);
+                self.set_flags(self.memory[address]);
+            },
+            Opcode::DEX => {
+                self.x = self.x.wrapping_sub(1);
+                self.set_flags(self.x);
+            },
+            Opcode::DEY => {
+                self.y = self.y.wrapping_sub(1);
+                self.set_flags(self.y);
+            },
+
             Opcode::EOR => {
                 let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
                 self.a ^= operand;
                 self.set_flags(self.a);
                 self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            },
+
+            Opcode::INC => {
+                let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                self.memory[address] = self.memory[address].wrapping_add(1);
+                self.set_flags(self.memory[address]);
+            },
+            Opcode::INX => {
+                self.x = self.x.wrapping_add(1);
+                self.set_flags(self.x);
+            },
+            Opcode::INY => {
+                self.y = self.y.wrapping_add(1);
+                self.set_flags(self.y);
             },
 
             Opcode::JMP => {
