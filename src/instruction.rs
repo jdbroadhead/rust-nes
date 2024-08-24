@@ -577,7 +577,7 @@ impl Instruction {
             0xEC => Self {
                 opcode: Opcode::CPX,
                 addressing_mode: AddressingMode::Absolute,
-                width: 2,
+                width: 3,
                 cycles: 4,
                 data,
 				opcode_byte
@@ -603,7 +603,7 @@ impl Instruction {
             0xCC => Self {
                 opcode: Opcode::CPY,
                 addressing_mode: AddressingMode::Absolute,
-                width: 2,
+                width: 3,
                 cycles: 4,
                 data,
 				opcode_byte
@@ -1251,7 +1251,7 @@ impl Instruction {
             0xED => Self {
                 opcode: Opcode::SBC,
                 addressing_mode: AddressingMode::Absolute,
-                width: 2,
+                width: 3,
                 cycles: 4,
                 data,
 				opcode_byte

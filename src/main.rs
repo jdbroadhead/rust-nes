@@ -568,9 +568,11 @@ impl<'a> Display for CPU6502<'a> {
             AddressingMode::Implied => operand_fragment = format!("{:?}", instruction.opcode),
             AddressingMode::Immediate => operand_fragment = format!("{:?} #${:02X}", instruction.opcode, instruction.data.0),
             AddressingMode::Absolute => {
-                // Infuriatingly STA, STX and STY seem to have special logging requirements, where the value of the register is included
+                // Infuriatingly some instructions seem to have special logging requirements, where the value at the address is included
                 match instruction.opcode {
-                    Opcode::STX | Opcode::STY | Opcode::STA | Opcode::LDA | Opcode::LDX | Opcode::LDY => {
+                    Opcode::STX | Opcode::STY | Opcode::STA | Opcode::LDA | Opcode::LDX | Opcode::LDY | Opcode::BIT
+                    | Opcode::ORA | Opcode::AND | Opcode::EOR | Opcode::ADC | Opcode::SBC | Opcode::CMP | Opcode::CPX
+                    | Opcode::CPY | Opcode::LSR | Opcode::ASL | Opcode::ROR | Opcode::ROL | Opcode::INC | Opcode::DEC => {
                         let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
                         let byte = self.memory[address]; 
                         operand_fragment = format!("{:?} ${:02X}{:02X} = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, byte)
@@ -682,7 +684,7 @@ mod tests {
                     println!("Instruction {} ✓ - {} ", line_no, cpu_log);
                     cpu.load_and_execute();
                 } else {
-                    std::panic!("Expected {}, got {}", remove_ppu_from_log(&log), remove_ppu_from_log(&cpu.to_string()))
+                    std::panic!("Expected\n{},\ngot\n{}", remove_ppu_from_log(&log), remove_ppu_from_log(&cpu.to_string()))
                 }
             }
         }
