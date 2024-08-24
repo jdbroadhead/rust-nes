@@ -189,6 +189,79 @@ impl<'a> CPU6502<'a> {
         }
     }
 }
+
+impl<'a> Display for CPU6502<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // First half is instruction information
+        let instruction = Instruction::decode(&self.memory, self.pc); 
+        
+        let bytes_fragment: String;
+        match instruction.width {
+            1 => bytes_fragment = format!("{:02X}        ", instruction.opcode_byte),
+            2 => bytes_fragment = format!("{:02X} {:02X}     ", instruction.opcode_byte, instruction.data.0),
+            3 => bytes_fragment = format!("{:02X} {:02X} {:02X}  ", instruction.opcode_byte, instruction.data.0, instruction.data.1),
+            _ => panic!("Invalid width value {}!", instruction.width)
+        };
+
+        let operand_fragment: String;
+        match instruction.addressing_mode {
+            AddressingMode::Implied => operand_fragment = format!("{:?}", instruction.opcode),
+            AddressingMode::Immediate => operand_fragment = format!("{:?} #{:02X}", instruction.opcode, instruction.data.0),
+            AddressingMode::Absolute => {
+                operand_fragment = format!("{:?} ${:02X}{:02X}", instruction.opcode, instruction.data.1, instruction.data.0);
+            },
+            AddressingMode::AbsoluteIndexedX => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X},X @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.x, address as u16);
+            },
+            AddressingMode::AbsoluteIndexedY => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X},Y @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, address as u16);
+            },
+            AddressingMode::IndexedIndirect => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                let byte = self.memory[address]; 
+                operand_fragment = format!("{:?} (${:02X},X) @ {:02X} = {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.x, address as u16, byte);
+            },
+            AddressingMode::ZeroPage => {
+                let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X} = {:02X}", instruction.opcode, instruction.data.0, byte);
+            },
+            AddressingMode::ZeroPageIndexedX => {
+                let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X},X @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.x, byte);
+            },
+            AddressingMode::ZeroPageIndexedY => {
+                let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X},Y @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, byte);
+            },
+            AddressingMode::IndirectIndexed => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                let byte = self.memory[address]; 
+                operand_fragment = format!("{:?} (${:02X}),Y @ {:02X} = {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, address as u16, byte);
+            },
+            AddressingMode::Accumulator => operand_fragment = format!("{:?} A", instruction.opcode),
+            AddressingMode::Relative => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                operand_fragment = format!("{:?} ${:02X}", instruction.opcode, address as u16);
+            },
+            AddressingMode::Indirect => {
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                let byte = self.memory[address]; 
+                operand_fragment = format!("{:?} (${:02X}{:02X}) = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, address as u16);
+            },
+        };
+
+        let mut first_half = format!("{:X} {}{}", self.pc, bytes_fragment, operand_fragment);
+        let padding_required = 48 - first_half.len();
+        first_half += (0..padding_required).map(|_| " ").collect::<String>().as_str();
+
+        // Second is processor state
+        let processor_fragment = format!("A:{:02X} X:{:02X} Y:{:02X} P:{:02X} SP:{:02X} PPU:  0, 00 CYC:{}",
+                self.a, self.x, self.y, self.flags.as_byte(), self.sp, self.cycles);
+
+        write!(f, "{}{}", first_half, processor_fragment)
+    }
 }
 
 fn main() {
