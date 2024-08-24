@@ -306,3 +306,54 @@ fn main() {
     let mut memory = [0 as u8; MEMORY_SIZE];
     let mut cpu = CPU6502::new(memory.as_mut_slice());
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, io::{self, BufRead}};
+
+    use super::*;
+
+    fn remove_ppu_from_log(log: &String) -> String {
+        let (first_part, rest) = log.split_at(74);
+        let (_, second_part) = rest.split_at(12);
+        first_part.to_owned().to_string() + second_part
+    }
+
+    #[test]
+    fn run_nestest() {
+        // We need something against which we can compare our execution of the nestest binary. Fortunately there are
+        // log files available. So we open the nestest.log file into a line-by-line iterator
+        let log_file = File::open("nestest.log").unwrap();
+        let logs = io::BufReader::new(log_file).lines();
+
+        // ...then we set up the CPU as it would be if booting from a cartridge after the start
+        // vector has been run
+        let mut memory: [u8; MEMORY_SIZE] = [0;MEMORY_SIZE];
+        let mut cpu = CPU6502 {
+            pc: 0xC000,
+            a: 0,
+            x: 0,
+            y: 0,
+            sp: 0xFD,
+            cycles: 7,
+            flags: CPUFlags::from_byte(0x24),
+            memory: memory.as_mut_slice()
+        };
+
+        // ... load the binary into memory
+        cpu.load_memory(0xC000, include_bytes!("../nestest.bin"));
+
+        // ...and iterate through the log lines, executing instructions as we go
+        for line in logs.enumerate() {
+            if let (line_no, Ok(log)) = line {
+                // The logs include PPU information, which we obviously can't test here, so we split the strings
+                let cpu_log = remove_ppu_from_log(&cpu.to_string());
+                if remove_ppu_from_log(&log.trim().to_string()) == cpu_log {
+                    println!("Instruction {} ✓ - {} ", line_no, cpu_log);
+                    cpu.load_and_execute();
+                } else {
+                    std::panic!("Expected {}, got {}", remove_ppu_from_log(&log), remove_ppu_from_log(&cpu.to_string()))
+                }
+            }
+        }
+    }
