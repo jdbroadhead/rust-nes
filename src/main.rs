@@ -122,7 +122,7 @@ impl<'a> CPU6502<'a> {
     }
 
     fn compare_and_set_flags(&mut self, register_byte: u8, memory_byte: u8) {
-        let result = register_byte - memory_byte;
+        let result = register_byte.wrapping_sub(memory_byte);
         self.set_flags(result);
         self.flags.carry = !(register_byte < memory_byte);
     }
@@ -146,6 +146,17 @@ impl<'a> CPU6502<'a> {
         }
     }
 
+    fn add_with_carry(&mut self, operand: u8) {
+        let result = self.a.wrapping_add(operand).wrapping_add(self.flags.carry as u8);
+        self.set_flags(result);
+        self.flags.carry = self.a > result;
+        // Overflow occurs when the operands have the same sign bit, but the result does not
+        self.flags.overflow = ((!(self.a ^ operand)) & 0x80  // true when operands have same sign
+                            & ((operand ^ result))) == 0x80; // and result is different 
+        self.a = result;
+        self.set_flags(self.a)
+    }
+
     fn execute_instruction(&mut self, instruction: Instruction) {
         // Add variable bindings here to keep the execution switch statement (reasonably)
         // concise and readable
@@ -154,6 +165,12 @@ impl<'a> CPU6502<'a> {
         let instruction_data = instruction.data;
 
         match opcode {
+            Opcode::ADC => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.add_with_carry(operand);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            },
+
             Opcode::AND => {
                 let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
                 self.a &= operand;
@@ -197,6 +214,13 @@ impl<'a> CPU6502<'a> {
                 self.compare_and_set_flags(self.y, operand);
             },
 
+            Opcode::EOR => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.a ^= operand;
+                self.set_flags(self.a);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            },
+
             Opcode::JMP => {
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
                 // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
@@ -232,6 +256,13 @@ impl<'a> CPU6502<'a> {
 
             Opcode::NOP => (),
 
+            Opcode::ORA => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.a |= operand;
+                self.set_flags(self.a);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            }
+
             Opcode::PHA => self.push_on_stack(self.a),
             // PHP sets the break flag on the value pushed to the stack
             // Ref: https://www.nesdev.org/wiki/Status_flags#The_B_flag
@@ -250,6 +281,12 @@ impl<'a> CPU6502<'a> {
                 let hi_byte = self.pop_from_stack();
                 let address = to_address_from_bytes((self.pop_from_stack(), hi_byte)) as u16;
                 self.pc = address;  
+            },
+
+            Opcode::SBC => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.add_with_carry(!operand);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
             },
 
             Opcode::SEC => self.flags.carry = true,
@@ -448,7 +485,6 @@ impl<'a> Display for CPU6502<'a> {
             },
             AddressingMode::Indirect => {
                 let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
-                let byte = self.memory[address]; 
                 operand_fragment = format!("{:?} (${:02X}{:02X}) = {:02X}", instruction.opcode, instruction.data.1, instruction.data.0, address as u16);
             },
         };
@@ -467,7 +503,7 @@ impl<'a> Display for CPU6502<'a> {
 
 fn main() {
     let mut memory = [0 as u8; MEMORY_SIZE];
-    let _ = CPU6502::new(memory.as_mut_slice());
+    let cpu = CPU6502::new(memory.as_mut_slice());
 }
 
 #[cfg(test)]
