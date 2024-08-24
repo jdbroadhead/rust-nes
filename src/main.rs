@@ -124,6 +124,102 @@ impl<'a> CPU6502<'a> {
         let instruction_data = instruction.data;
 
         match opcode {
+            Opcode::BCC => {
+                if !self.flags.carry {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BCS => {
+                if self.flags.carry {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BEQ => {
+                if self.flags.zero {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BMI => {
+                if self.flags.negative {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BNE => {
+                if !self.flags.zero {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BPL => {
+                if !self.flags.negative {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::CLC => {
+                self.flags.carry = false;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::CLD => {
+                self.flags.decimal_mode = false;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::CLI => {
+                self.flags.interrupt_disable = false;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::CLV => {
+                self.flags.overflow = false;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
             Opcode::JMP => {
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
                 self.pc = new_address as u16;
@@ -176,6 +272,29 @@ impl<'a> CPU6502<'a> {
                     self.cycles += 1
                 }
                 self.pc += instruction.width as u16;
+            },
+
+            Opcode::NOP => {
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::SEC => {
+                self.flags.carry = true;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::SED => {
+                self.flags.decimal_mode = true;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::SEI => {
+                self.flags.interrupt_disable = true;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
             },
 
             Opcode::STA => {
