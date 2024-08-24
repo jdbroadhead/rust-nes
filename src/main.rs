@@ -529,9 +529,9 @@ impl<'a> CPU6502<'a> {
             // by Y with carry, and the word at that address is returned
             AddressingMode::IndirectIndexed => {
                 let address = to_address_from_bytes((self.memory[instruction_data.0 as usize],
-                    self.memory[instruction_data.0.wrapping_add(1) as usize]));
-                let indexed_address = address + self.y as usize;
-                (indexed_address, was_page_boundary_crossed(address, indexed_address))
+                    self.memory[instruction_data.0.wrapping_add(1) as usize])) as u16;
+                let indexed_address = address.wrapping_add(self.y as u16) as usize;
+                (indexed_address, was_page_boundary_crossed(address as usize, indexed_address))
             },
 
             // Relative addressing mode takes the address of the next instruction and adds a signed
