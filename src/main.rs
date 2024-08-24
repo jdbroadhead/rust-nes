@@ -1,4 +1,6 @@
 use std::u16;
+mod instruction;
+mod utils;
 
 /// The 6502 uses two bytes for memory addresses. Not all of it is RAM, cartridge memory is
 /// addressed in the same way.
