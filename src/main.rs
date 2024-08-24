@@ -121,7 +121,13 @@ impl<'a> CPU6502<'a> {
         self.flags.negative = is_negative(byte);
     }
 
-    fn branch_on_condition(&mut self, condition: bool, instruction: Instruction) {
+    fn compare_and_set_flags(&mut self, register_byte: u8, memory_byte: u8) {
+        let result = register_byte - memory_byte;
+        self.set_flags(result);
+        self.flags.carry = !(register_byte < memory_byte);
+    }
+
+    fn branch_on_condition(&mut self, condition: bool, instruction: &Instruction) {
         if condition {
             let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction.data, instruction.addressing_mode);
             // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
@@ -129,6 +135,15 @@ impl<'a> CPU6502<'a> {
             self.cycles += 1;
             if page_boundary_crossed { self.cycles += 1 }
         }  
+    }
+
+    fn add_extra_cycles(&mut self, addressing_mode: &AddressingMode, page_boundary_crossed: bool) {
+        match addressing_mode {
+            AddressingMode::AbsoluteIndexedX | AddressingMode::AbsoluteIndexedY | AddressingMode::IndirectIndexed => {
+                if page_boundary_crossed { self.cycles += 1 }
+            },
+            _ => ()
+        }
     }
 
     fn execute_instruction(&mut self, instruction: Instruction) {
@@ -139,9 +154,16 @@ impl<'a> CPU6502<'a> {
         let instruction_data = instruction.data;
 
         match opcode {
-            Opcode::BCC => self.branch_on_condition(!self.flags.carry, instruction),
-            Opcode::BCS => self.branch_on_condition(self.flags.carry, instruction),
-            Opcode::BEQ => self.branch_on_condition(self.flags.zero, instruction),
+            Opcode::AND => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.a &= operand;
+                self.set_flags(self.a);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            },
+
+            Opcode::BCC => self.branch_on_condition(!self.flags.carry, &instruction),
+            Opcode::BCS => self.branch_on_condition(self.flags.carry, &instruction),
+            Opcode::BEQ => self.branch_on_condition(self.flags.zero, &instruction),
 
             Opcode::BIT => {
                 let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
@@ -150,16 +172,30 @@ impl<'a> CPU6502<'a> {
                 self.flags.zero = (self.a & byte) == 0;
             },
 
-            Opcode::BMI => self.branch_on_condition(self.flags.negative, instruction),
-            Opcode::BNE => self.branch_on_condition(!self.flags.zero, instruction),
-            Opcode::BPL => self.branch_on_condition(!self.flags.negative, instruction),
-            Opcode::BVC => self.branch_on_condition(!self.flags.overflow, instruction),
-            Opcode::BVS => self.branch_on_condition(self.flags.overflow, instruction),
+            Opcode::BMI => self.branch_on_condition(self.flags.negative, &instruction),
+            Opcode::BNE => self.branch_on_condition(!self.flags.zero, &instruction),
+            Opcode::BPL => self.branch_on_condition(!self.flags.negative, &instruction),
+            Opcode::BVC => self.branch_on_condition(!self.flags.overflow, &instruction),
+            Opcode::BVS => self.branch_on_condition(self.flags.overflow, &instruction),
 
             Opcode::CLC => self.flags.carry = false,
             Opcode::CLD => self.flags.decimal_mode = false,
             Opcode::CLI => self.flags.interrupt_disable = false,
             Opcode::CLV => self.flags.overflow = false,
+
+            Opcode::CMP => {
+                let (operand, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
+                self.compare_and_set_flags(self.a, operand);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
+            },
+            Opcode::CPX => {
+                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.compare_and_set_flags(self.x, operand);
+            },
+            Opcode::CPY => {
+                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.compare_and_set_flags(self.y, operand);
+            },
 
             Opcode::JMP => {
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
@@ -178,26 +214,20 @@ impl<'a> CPU6502<'a> {
             Opcode::LDA => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
                 self.a = byte;
-                if (addressing_mode == AddressingMode::AbsoluteIndexedX || addressing_mode == AddressingMode::AbsoluteIndexedY)
-                        && page_boundary_crossed {
-                    self.cycles += 1
-                }
+                self.set_flags(self.a);
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
             },
             Opcode::LDX => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
                 self.set_flags(byte);
                 self.x = byte;      
-                if addressing_mode == AddressingMode::AbsoluteIndexedY && page_boundary_crossed {
-                    self.cycles += 1
-                }      
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed);
             },
             Opcode::LDY => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
                 self.set_flags(byte);
                 self.y = byte;            
-                if addressing_mode == AddressingMode::AbsoluteIndexedX && page_boundary_crossed {
-                    self.cycles += 1
-                }      
+                self.add_extra_cycles(&addressing_mode, page_boundary_crossed); 
             },
 
             Opcode::NOP => (),
@@ -212,7 +242,8 @@ impl<'a> CPU6502<'a> {
             },
             Opcode::PLP => {
                 let new_flags = self.pop_from_stack();
-                self.flags.set_from_byte(new_flags);     
+                self.flags.set_from_byte(new_flags);
+                self.flags.break_command = false;  
             },
 
             Opcode::RTS => {
