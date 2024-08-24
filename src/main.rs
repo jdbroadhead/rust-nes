@@ -116,6 +116,21 @@ impl<'a> CPU6502<'a> {
         self.execute_instruction(instruction)
     }
 
+    fn set_flags(&mut self, byte: u8) {
+        self.flags.zero = is_zero(byte);
+        self.flags.negative = is_negative(byte);
+    }
+
+    fn branch_on_condition(&mut self, condition: bool, instruction: Instruction) {
+        if condition {
+            let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+            // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
+            self.pc = (branch_address - instruction.width) as u16;
+            self.cycles += 1;
+            if page_boundary_crossed { self.cycles += 1 }
+        }  
+    }
+
     fn execute_instruction(&mut self, instruction: Instruction) {
         // Add variable bindings here to keep the execution switch statement (reasonably)
         // concise and readable
@@ -124,274 +139,111 @@ impl<'a> CPU6502<'a> {
         let instruction_data = instruction.data;
 
         match opcode {
-            Opcode::BCC => {
-                if !self.flags.carry {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::BCS => {
-                if self.flags.carry {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::BEQ => {
-                if self.flags.zero {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
+            Opcode::BCC => self.branch_on_condition(!self.flags.carry, instruction),
+            Opcode::BCS => self.branch_on_condition(self.flags.carry, instruction),
+            Opcode::BEQ => self.branch_on_condition(self.flags.zero, instruction),
 
             Opcode::BIT => {
                 let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
                 self.flags.negative = ((0b10000000 & byte) >> 7) == 1;
                 self.flags.overflow = ((0b01000000 & byte) >> 6) == 1;
                 self.flags.zero = (self.a & byte) == 0;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
             },
 
-            Opcode::BMI => {
-                if self.flags.negative {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
+            Opcode::BMI => self.branch_on_condition(self.flags.negative, instruction),
+            Opcode::BNE => self.branch_on_condition(!self.flags.zero, instruction),
+            Opcode::BPL => self.branch_on_condition(!self.flags.negative, instruction),
+            Opcode::BVC => self.branch_on_condition(!self.flags.overflow, instruction),
+            Opcode::BVS => self.branch_on_condition(self.flags.overflow, instruction),
 
-            Opcode::BNE => {
-                if !self.flags.zero {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::BPL => {
-                if !self.flags.negative {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::BVC => {
-                if !self.flags.overflow {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::BVS => {
-                if self.flags.overflow {
-                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
-                    self.pc = branch_address as u16;
-                    self.cycles += 1;
-                    if page_boundary_crossed { self.cycles += 1 }
-                } else{
-                    self.pc += instruction.width as u16;
-                }
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::CLC => {
-                self.flags.carry = false;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::CLD => {
-                self.flags.decimal_mode = false;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::CLI => {
-                self.flags.interrupt_disable = false;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::CLV => {
-                self.flags.overflow = false;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
+            Opcode::CLC => self.flags.carry = false,
+            Opcode::CLD => self.flags.decimal_mode = false,
+            Opcode::CLI => self.flags.interrupt_disable = false,
+            Opcode::CLV => self.flags.overflow = false,
 
             Opcode::JMP => {
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
-                self.pc = new_address as u16;
-                // JMP and other branch instructions add 1 cycle if branch occurs to same page, 2 if elsewhere
-                self.cycles += instruction.cycles
+                // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
+                self.pc = (new_address - instruction.width) as u16;
             },
-
             Opcode::JSR => {
                 // Return address is next instruction - or PC plus 2
                 let return_address_bytes = to_bytes_from_address(self.pc + 2);
                 self.push_on_stack(return_address_bytes.0);
                 self.push_on_stack(return_address_bytes.1);
                 let (new_address, _) = self.get_address_operand(instruction_data, addressing_mode);
-                self.pc = new_address as u16;
-                self.cycles += instruction.cycles;
+                // Pre-decrement the PC with the width, because the execution loop will increment it afterwards
+                self.pc = (new_address - instruction.width) as u16;
             },
-
             Opcode::LDA => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.zero = is_zero(byte);
-                self.flags.negative = is_negative(byte);
                 self.a = byte;
-                self.cycles += instruction.cycles;
                 if (addressing_mode == AddressingMode::AbsoluteIndexedX || addressing_mode == AddressingMode::AbsoluteIndexedY)
                         && page_boundary_crossed {
                     self.cycles += 1
                 }
-                self.pc += instruction.width as u16;
             },
-
             Opcode::LDX => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.zero = is_zero(byte);
-                self.flags.negative = is_negative(byte);
-                self.x = byte;
-                self.cycles += instruction.cycles;
+                self.set_flags(byte);
+                self.x = byte;      
                 if addressing_mode == AddressingMode::AbsoluteIndexedY && page_boundary_crossed {
                     self.cycles += 1
-                }
-                self.pc += instruction.width as u16;
+                }      
             },
-
             Opcode::LDY => {
                 let (byte, page_boundary_crossed) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.zero = is_zero(byte);
-                self.flags.negative = is_negative(byte);
-                self.y = byte;
-                self.cycles += instruction.cycles;
+                self.set_flags(byte);
+                self.y = byte;            
                 if addressing_mode == AddressingMode::AbsoluteIndexedX && page_boundary_crossed {
                     self.cycles += 1
-                }
-                self.pc += instruction.width as u16;
+                }      
             },
 
-            Opcode::NOP => {
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
+            Opcode::NOP => (),
 
-            Opcode::PHA => {
-                self.push_on_stack(self.a);
-                self.cycles += instruction.cycles;
-                self.pc += instruction.width as u16;
-            },
-
-            Opcode::PHP => {
-                // PHP sets the break flag on the value pushed to the stack
-                // Ref: https://www.nesdev.org/wiki/Status_flags#The_B_flag
-                self.push_on_stack(self.flags.as_byte() | 0b00010000);
-                self.cycles += instruction.cycles;
-                self.pc += instruction.width as u16;
-            },
-
+            Opcode::PHA => self.push_on_stack(self.a),
+            // PHP sets the break flag on the value pushed to the stack
+            // Ref: https://www.nesdev.org/wiki/Status_flags#The_B_flag
+            Opcode::PHP => self.push_on_stack(self.flags.as_byte() | 0b00010000),
             Opcode::PLA => {
-                // Bit 5 has to be untouched
                 self.a = self.pop_from_stack();
-                self.flags.zero = is_zero(self.a);
-                self.flags.negative = is_negative(self.a);
-                self.cycles += instruction.cycles;
-                self.pc += instruction.width as u16;
+                self.set_flags(self.a);  
             },
-
             Opcode::PLP => {
                 let new_flags = self.pop_from_stack();
-                self.flags.set_from_byte(new_flags);
-                self.cycles += instruction.cycles;
-                self.pc += instruction.width as u16;
+                self.flags.set_from_byte(new_flags);     
             },
 
             Opcode::RTS => {
                 let hi_byte = self.pop_from_stack();
                 let address = to_address_from_bytes((self.pop_from_stack(), hi_byte)) as u16;
-                self.pc = address;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles
+                self.pc = address;  
             },
 
-            Opcode::SEC => {
-                self.flags.carry = true;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::SED => {
-                self.flags.decimal_mode = true;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
-
-            Opcode::SEI => {
-                self.flags.interrupt_disable = true;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
-            },
+            Opcode::SEC => self.flags.carry = true,
+            Opcode::SED => self.flags.decimal_mode = true,
+            Opcode::SEI => self.flags.interrupt_disable = true,
 
             Opcode::STA => {
                 let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
                 self.memory[address] = self.a;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
             },
-
             Opcode::STX => {
                 let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
-                self.memory[address] = self.x;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
+                self.memory[address] = self.x; 
             },
-
             Opcode::STY => {
                 let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
-                self.memory[address] = self.y;
-                self.pc += instruction.width as u16;
-                self.cycles += instruction.cycles;
+                self.memory[address] = self.y;        
             }
 
 
             _ => panic!("Unsupported instruction executed")
         }
+        
+        self.pc += instruction.width as u16;
+        self.cycles += instruction.cycles;
     }
 
     /// For instructions which take values as an operand. Takes the two bytes following the opcode and the addressing mode, and returns a tuple containing

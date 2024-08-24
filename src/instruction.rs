@@ -33,7 +33,7 @@ pub enum AddressingMode {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Opcode {
     /// [Add with carry](https://www.masswerk.at/6502/6502_instruction_set.html#ADC)
     ADC,
