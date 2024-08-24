@@ -482,9 +482,9 @@ impl<'a> CPU6502<'a> {
             // Absolute instructions need the value in memory at the address given by the data
             // bytes (little-endian) plus the value in register Y
             AddressingMode::AbsoluteIndexedY => {
-                let address = utils::to_address_from_bytes(instruction_data);
-                let indexed_address = address + self.x as usize;
-                (address, was_page_boundary_crossed(address, indexed_address))
+                let address = utils::to_address_from_bytes(instruction_data) as u16;
+                let indexed_address = address.wrapping_add(self.y as u16);
+                (indexed_address as usize, was_page_boundary_crossed(address as usize, indexed_address as usize))
             },
 
             // Returns the byte on the zero page at the address given by the first byte of
@@ -589,7 +589,8 @@ impl<'a> Display for CPU6502<'a> {
             },
             AddressingMode::AbsoluteIndexedY => {
                 let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
-                operand_fragment = format!("{:?} ${:02X},Y @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.y, address as u16);
+                let initial_address = to_address_from_bytes(instruction.data);
+                operand_fragment = format!("{:?} ${:04X},Y @ {:04X} = {:02X}", instruction.opcode, initial_address, address, self.memory[address]);
             },
             AddressingMode::IndexedIndirect => {
                 let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
@@ -601,8 +602,9 @@ impl<'a> Display for CPU6502<'a> {
                 operand_fragment = format!("{:?} ${:02X} = {:02X}", instruction.opcode, instruction.data.0, byte);
             },
             AddressingMode::ZeroPageIndexedX => {
-                let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
-                operand_fragment = format!("{:?} ${:02X},X @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, self.x, byte);
+                let (address, _) = self.get_address_operand(instruction.data, instruction.addressing_mode);
+                let byte = self.memory[address];
+                operand_fragment = format!("{:?} ${:02X},X @ {:02X} = {:02X}", instruction.opcode, instruction.data.0, address, byte);
             },
             AddressingMode::ZeroPageIndexedY => {
                 let (byte, _) = self.get_value_operand(instruction.data, instruction.addressing_mode);
@@ -628,7 +630,7 @@ impl<'a> Display for CPU6502<'a> {
             },
         };
 
-        let mut first_half = format!("{:X}  {}{}", self.pc, bytes_fragment, operand_fragment);
+        let mut first_half = format!("{:04X}  {}{}", self.pc, bytes_fragment, operand_fragment);
         let padding_required = 48 - first_half.len();
         first_half += (0..padding_required).map(|_| " ").collect::<String>().as_str();
 
