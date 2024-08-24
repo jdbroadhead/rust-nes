@@ -33,6 +33,23 @@ impl CPUFlags {
         }
     }
 
+    pub fn set_from_byte(&mut self, byte: u8) {
+        self.carry = (0b00000001 & byte) == 1;
+        self.zero = ((0b00000010 & byte) >> 1) == 1;
+        self.interrupt_disable = ((0b00000100 & byte) >> 2) == 1;
+        self.decimal_mode = ((0b00001000 & byte) >> 3) == 1;
+        self.break_command = ((0b00010000 & byte) >> 4) == 1;
+        // Bit 5 is ignored
+        self.overflow = ((0b01000000 & byte) >> 6) == 1;
+        self.negative = ((0b10000000 & byte) >> 7) == 1;
+    }
+
+    pub fn from_byte(byte: u8) -> Self {
+        let mut flags = Self::new();
+        flags.set_from_byte(byte);
+        flags
+    }
+
     pub fn as_byte(&self) -> u8 {
         let mut byte = self.negative as u8;
         byte = (byte << 1) | self.overflow as u8;
