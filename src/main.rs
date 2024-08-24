@@ -1,7 +1,7 @@
 mod instruction;
 mod utils;
 use core::panic;
-use std::{collections::btree_map, fmt::{write, Display}, u16};
+use std::{collections::btree_map, fmt::{write, Display}, ops::Add, u16};
 
 use instruction::{AddressingMode, Instruction, Opcode};
 use utils::{is_negative, is_zero, to_address_from_bytes, to_bytes_from_address, was_page_boundary_crossed};
@@ -179,10 +179,19 @@ impl<'a> CPU6502<'a> {
             },
 
             Opcode::ASL => {
-                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.carry = (operand & 0b10000000) == 0b10000000;
-                self.a = operand << 1;
-                self.set_flags(self.a);
+                if addressing_mode != AddressingMode::Accumulator {
+                    let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                    let byte = self.memory[address];
+                    self.flags.carry = (byte & 0b10000000) == 0b10000000;
+                    self.memory[address] = byte << 1;
+                    self.set_flags(self.memory[address]);
+                    
+                } else {
+                    let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                    self.flags.carry = (operand & 0b10000000) == 0b10000000;
+                    self.a = operand << 1;
+                    self.set_flags(self.a);
+                }
             }
 
             Opcode::BCC => self.branch_on_condition(!self.flags.carry, &instruction),
@@ -290,10 +299,19 @@ impl<'a> CPU6502<'a> {
             },
 
             Opcode::LSR => {
-                let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.carry = (byte & 0x01) == 1;
-                self.a = byte >> 1;
-                self.set_flags(self.a);
+                if addressing_mode != AddressingMode::Accumulator {
+                    let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                    let byte = self.memory[address];
+                    self.flags.carry = (byte & 0x01) == 1;
+                    self.memory[address] = byte >> 1;
+                    self.set_flags(self.memory[address]);
+                }
+                else {
+                    let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
+                    self.flags.carry = (byte & 0x01) == 1;
+                    self.a = byte >> 1;
+                    self.set_flags(self.a);
+                }
             }
 
             Opcode::NOP => (),
@@ -321,17 +339,33 @@ impl<'a> CPU6502<'a> {
 
             Opcode::ROL => {
                 let carry = self.flags.carry as u8;
-                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.carry = (operand & 0b10000000) == 0b10000000;
-                self.a = (operand << 1) + carry;
-                self.set_flags(self.a);
+                if addressing_mode != AddressingMode::Accumulator {
+                    let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                    let byte = self.memory[address];
+                    self.flags.carry = (byte & 0b10000000) == 0b10000000;
+                    self.memory[address] = (byte << 1) + carry;
+                    self.set_flags(self.memory[address]);
+                } else {
+                    let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                    self.flags.carry = (operand & 0b10000000) == 0b10000000;
+                    self.a = (operand << 1) + carry;
+                    self.set_flags(self.a);
+                } 
             },
             Opcode::ROR => {
                 let carry = self.flags.carry as u8;
-                let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
-                self.flags.carry = (operand & 0x01) == 1;
-                self.a = (operand >> 1) + (carry << 7);
-                self.set_flags(self.a);
+                if addressing_mode != AddressingMode::Accumulator {
+                    let (address, _) = self.get_address_operand(instruction_data, addressing_mode);
+                    let byte = self.memory[address];
+                    self.flags.carry = (byte & 0x01) == 1;
+                    self.memory[address] = (byte >> 1) + (carry << 7);
+                    self.set_flags(self.memory[address]);
+                } else {
+                    let (operand, _) = self.get_value_operand(instruction_data, addressing_mode);
+                    self.flags.carry = (operand & 0x01) == 1;
+                    self.a = (operand >> 1) + (carry << 7);
+                    self.set_flags(self.a);
+                }
             }
 
             Opcode::RTI => {
