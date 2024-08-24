@@ -8,7 +8,7 @@ use utils::{to_address_from_bytes, was_page_boundary_crossed};
 
 /// The 6502 uses two bytes for memory addresses. Not all of it is RAM, cartridge memory is
 /// addressed in the same way.
-const MEMORY_SIZE: usize = u16::MAX as usize;
+const MEMORY_SIZE: usize = u16::MAX as usize + 1;
 
 struct CPUFlags {
     pub carry: bool,
@@ -63,12 +63,18 @@ impl<'a> CPU6502<'a> {
             y: 0,
             a: 0,
             pc: 0,
-            sp: 0,
             cycles: 0,
             sp: 0xFD,
             flags: CPUFlags::new(),
             memory
         }
+    }
+
+    pub fn load_memory(&mut self, location: u16, data: &[u8]) {
+        let _: Vec<_> = data.iter().enumerate().map(|tuple| {
+            let (index, byte) = tuple;
+            self.memory[index + location as usize] = *byte;
+        } ).collect();
     }
 
 
