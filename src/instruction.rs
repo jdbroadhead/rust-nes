@@ -503,56 +503,56 @@ impl Instruction {
             0xC5 => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::ZeroPage,
-                cycles: 2,
-                width: 3,
+                cycles: 3,
+                width: 2,
                 data,
 				opcode_byte
             },
             0xD5 => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::ZeroPageIndexedX,
-                cycles: 2,
-                width: 4,
+                cycles: 4,
+                width: 2,
                 data,
 				opcode_byte
             },
             0xCD => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::Absolute,
-                cycles: 3,
-                width: 4,
+                cycles: 4,
+                width: 3,
                 data,
 				opcode_byte
             },
             0xDD => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::AbsoluteIndexedX,
-                cycles: 3,
-                width: 4,
+                cycles: 4,
+                width: 3,
                 data,
 				opcode_byte
             },
             0xD9 => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::AbsoluteIndexedY,
-                cycles: 3,
-                width: 4,
+                cycles: 4,
+                width: 3,
                 data,
 				opcode_byte
             },
             0xC1 => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::IndexedIndirect,
-                cycles: 2,
-                width: 6,
+                cycles: 6,
+                width: 2,
                 data,
 				opcode_byte
             },
             0xD1 => Self {
                 opcode: Opcode::CMP,
                 addressing_mode: AddressingMode::IndirectIndexed,
-                cycles: 2,
-                width: 5,
+                cycles: 5,
+                width: 2,
                 data,
 				opcode_byte
             },
