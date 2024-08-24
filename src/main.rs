@@ -98,9 +98,9 @@ impl<'a> CPU6502<'a> {
     }
 
     pub fn pop_from_stack(&mut self) -> u8 {
+        self.sp += 1;
         let address = STACK_PAGE + self.sp as u16;
         let byte = self.memory[address as usize];
-        self.sp += 1;
         byte
     }
 
@@ -160,6 +160,15 @@ impl<'a> CPU6502<'a> {
                 self.cycles += instruction.cycles;
             },
 
+            Opcode::BIT => {
+                let (byte, _) = self.get_value_operand(instruction_data, addressing_mode);
+                self.flags.negative = ((0b10000000 & byte) >> 7) == 1;
+                self.flags.overflow = ((0b01000000 & byte) >> 6) == 1;
+                self.flags.zero = (self.a & byte) == 0;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles;
+            },
+
             Opcode::BMI => {
                 if self.flags.negative {
                     let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
@@ -186,6 +195,30 @@ impl<'a> CPU6502<'a> {
 
             Opcode::BPL => {
                 if !self.flags.negative {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BVC => {
+                if !self.flags.overflow {
+                    let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
+                    self.pc = branch_address as u16;
+                    self.cycles += 1;
+                    if page_boundary_crossed { self.cycles += 1 }
+                } else{
+                    self.pc += instruction.width as u16;
+                }
+                self.cycles += instruction.cycles;
+            },
+
+            Opcode::BVS => {
+                if self.flags.overflow {
                     let (branch_address, page_boundary_crossed) = self.get_address_operand(instruction_data, addressing_mode);
                     self.pc = branch_address as u16;
                     self.cycles += 1;
@@ -277,6 +310,44 @@ impl<'a> CPU6502<'a> {
             Opcode::NOP => {
                 self.pc += instruction.width as u16;
                 self.cycles += instruction.cycles;
+            },
+
+            Opcode::PHA => {
+                self.push_on_stack(self.a);
+                self.cycles += instruction.cycles;
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::PHP => {
+                // PHP sets the break flag on the value pushed to the stack
+                // Ref: https://www.nesdev.org/wiki/Status_flags#The_B_flag
+                self.push_on_stack(self.flags.as_byte() | 0b00010000);
+                self.cycles += instruction.cycles;
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::PLA => {
+                // Bit 5 has to be untouched
+                self.a = self.pop_from_stack();
+                self.flags.zero = is_zero(self.a);
+                self.flags.negative = is_negative(self.a);
+                self.cycles += instruction.cycles;
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::PLP => {
+                let new_flags = self.pop_from_stack();
+                self.flags.set_from_byte(new_flags);
+                self.cycles += instruction.cycles;
+                self.pc += instruction.width as u16;
+            },
+
+            Opcode::RTS => {
+                let hi_byte = self.pop_from_stack();
+                let address = to_address_from_bytes((self.pop_from_stack(), hi_byte)) as u16;
+                self.pc = address;
+                self.pc += instruction.width as u16;
+                self.cycles += instruction.cycles
             },
 
             Opcode::SEC => {
