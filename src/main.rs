@@ -301,11 +301,13 @@ impl<'a> CPU6502<'a> {
                 (indexed_address, was_page_boundary_crossed(address, indexed_address))
             },
 
-            // Relative addressing mode takes the address currently in the program counter and adds a signed
+            // Relative addressing mode takes the address of the next instruction and adds a signed
             // offset given by the next byte
             AddressingMode::Relative => {
                 let offset = (instruction_data.0 as i8) as i32;
-                let pc = self.pc as i32;
+                // Relative instructions are always two bytes wide, so the next instruction is always
+                // the PC plus 2
+                let pc = (self.pc + 2) as i32;
                 let address = (pc + offset) as usize;
                 (address, was_page_boundary_crossed(pc as usize, address))
             },
